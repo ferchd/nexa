@@ -1,0 +1,30 @@
+[Unit]
+Description=NetCheck Network Connectivity Monitor
+Documentation=https://github.com/ferchd/nexa
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/usr/local/bin/nexa --config /etc/nexa/config.yaml
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=nexa
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/log/nexa
+ReadOnlyPaths=/etc/nexa
+
+MemoryLimit=100M
+CPUQuota=50%
+
+[Install]
+WantedBy=multi-user.target

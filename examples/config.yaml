@@ -1,0 +1,41 @@
+external_hosts:
+  - host: "8.8.8.8"
+    port: 53
+  - host: "1.1.1.1" 
+    port: 53
+  - host: "8.8.4.4"
+    port: 53
+
+corp_hosts:
+  - host: "fileserver.corp.local"
+    port: 445
+  - host: "dc01.corp.local"
+    port: 389
+  - host: "sharepoint.corp.local"
+    port: 443
+
+http_url: "https://www.google.com/generate_204"
+
+dns_probe: "internal.corp.local"
+
+tcp_timeout: "2s"
+http_timeout: "5s" 
+ping_timeout: "3s"
+
+attempts: 2
+backoff: "1500ms"
+
+workers: 8
+
+stdout_json: false
+
+prometheus: true
+prom_port: 9000
+
+log_file: "/var/log/nexa/nexa.log"
+log_level: "info"
+log_max_size_mb: 10
+log_max_backups: 3
+
+enable_icmp: true
+resolve_dns: true

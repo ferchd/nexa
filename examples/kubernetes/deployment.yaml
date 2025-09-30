@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nexa
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nexa
+  template:
+    metadata:
+      labels:
+        app: nexa
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9000"
+    spec:
+      containers:
+      - name: nexa
+        image: ghcr.io/ferchd/nexa:latest
+        ports:
+        - containerPort: 9000
+        volumeMounts:
+        - name: config
+          mountPath: /etc/nexa
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+      volumes:
+      - name: config
+        configMap:
+          name: nexa-config

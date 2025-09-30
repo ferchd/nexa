@@ -1,0 +1,84 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  goreleaser:
+    name: Create Release
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Run GoReleaser
+      uses: goreleaser/goreleaser-action@v4
+      with:
+        distribution: goreleaser
+        version: latest
+        args: release --clean
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        DOCKER_USERNAME: ${{ github.repository_owner }}
+
+  homebrew:
+    name: Update Homebrew Tap
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+    - name: Checkout homebrew-tap
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ github.repository_owner }}/homebrew-tap
+        token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        path: homebrew-tap
+
+    - name: Update Homebrew formula
+      run: |
+        VERSION="${GITHUB_REF#refs/tags/v}"
+        URL="https://github.com/${{ github.repository }}/archive/v${VERSION}.tar.gz"
+        SHA=$(curl -sL "$URL" | shasum -a 256 | cut -d' ' -f1)
+        
+        cat > homebrew-tap/Formula/nexa.rb << EOF
+        class Netcheck < Formula
+          desc "Network connectivity checker for enterprise environments"
+          homepage "https://github.com/${{ github.repository }}"
+          url "https://github.com/${{ github.repository }}/archive/v${VERSION}.tar.gz"
+          sha256 "${SHA}"
+          license "MIT"
+          
+          depends_on "go" => :build
+          
+          def install
+            system "go", "build", *std_go_args(ldflags: "-s -w"), "./cmd/nexa"
+          end
+          
+          test do
+            system "#{bin}/nexa", "--version"
+          end
+        end
+        EOF
+
+    - name: Commit and push Homebrew formula
+      run: |
+        cd homebrew-tap
+        git config user.name "GitHub Actions"
+        git config user.email "actions@github.com"
+        git add Formula/nexa.rb
+        git commit -m "Update nexa to v${VERSION}"
+        git push

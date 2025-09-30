@@ -1,0 +1,100 @@
+project_name: nexa
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: nexa
+    main: ./cmd/nexa
+    binary: nexa
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+      - 386
+      - arm
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+
+archives:
+  - format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+    format_overrides:
+      - goos: windows
+        format: zip
+
+checksum:
+  name_template: "checksums.txt"
+
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+
+dockers:
+  - image_templates:
+      - "ghcr.io/{{ .Env.DOCKER_USERNAME }}/nexa:{{ .Version }}-amd64"
+    goos: linux
+    goarch: amd64
+    use: buildx
+    dockerfile: scripts/docker/Dockerfile
+    build_flag_templates:
+      - "--pull"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+
+  - image_templates:
+      - "ghcr.io/{{ .Env.DOCKER_USERNAME }}/nexa:{{ .Version }}-arm64"
+    goos: linux
+    goarch: arm64
+    use: buildx
+    dockerfile: scripts/docker/Dockerfile
+    build_flag_templates:
+      - "--pull"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+
+docker_manifests:
+  - name_template: "ghcr.io/{{ .Env.DOCKER_USERNAME }}/nexa:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/{{ .Env.DOCKER_USERNAME }}/nexa:{{ .Version }}-amd64"
+      - "ghcr.io/{{ .Env.DOCKER_USERNAME }}/nexa:{{ .Version }}-arm64"
+
+  - name_template: "ghcr.io/{{ .Env.DOCKER_USERNAME }}/nexa:latest"
+    image_templates:
+      - "ghcr.io/{{ .Env.DOCKER_USERNAME }}/nexa:{{ .Version }}-amd64"
+      - "ghcr.io/{{ .Env.DOCKER_USERNAME }}/nexa:{{ .Version }}-arm64"
+
+release:
+  github:
+    owner: ferchd
+    name: nexa
+  prerelease: auto
+
+brews:
+  - name: nexa
+    homepage: "https://github.com/ferchd/nexa"
+    description: "Network connectivity checker for enterprise environments"
+    license: "MIT"
+    install: |
+      bin.install "nexa"
+    test: |
+      system "#{bin}/nexa --version"
