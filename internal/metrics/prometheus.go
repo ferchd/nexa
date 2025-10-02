@@ -12,34 +12,34 @@ type PrometheusMetrics struct {
 	internetUp      prometheus.Gauge
 	corporateUp     prometheus.Gauge
 	checkDuration   prometheus.Gauge
-	checksTotal     *prometheus.CounterVec
-	checksSuccess   *prometheus.CounterVec
-	checksFailed    *prometheus.CounterVec
+	checksTotal     *prometheus.GaugeVec
+	checksSuccess   *prometheus.GaugeVec
+	checksFailed    *prometheus.GaugeVec
 }
 
 func NewPrometheusMetrics(port int) (*PrometheusMetrics, error) {
 	metrics := &PrometheusMetrics{
 		internetUp: prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "nexa_internet_up",
-			Help: "Internet reachable (1/0)",
+			Help: "Internet reachable (1=up, 0=down)",
 		}),
 		corporateUp: prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "nexa_corporate_up", 
-			Help: "Corporate reachable (1/0)",
+			Help: "Corporate network reachable (1=up, 0=down)",
 		}),
 		checkDuration: prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "nexa_check_duration_seconds",
 			Help: "Duration of the last check in seconds",
 		}),
-		checksTotal: prometheus.NewCounterVec(prometheus.CounterOpts{
+		checksTotal: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "nexa_checks_total",
 			Help: "Total number of checks performed",
 		}, []string{"type"}),
-		checksSuccess: prometheus.NewCounterVec(prometheus.CounterOpts{
+		checksSuccess: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "nexa_checks_success_total",
 			Help: "Total number of successful checks",
 		}, []string{"type"}),
-		checksFailed: prometheus.NewCounterVec(prometheus.CounterOpts{
+		checksFailed: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "nexa_checks_failed_total", 
 			Help: "Total number of failed checks",
 		}, []string{"type"}),
@@ -93,11 +93,10 @@ func (m *PrometheusMetrics) UpdateCheckSummary(stats struct {
 	ExternalChecks int
 	CorporateChecks int
 }) {
-	m.checksTotal.WithLabelValues("external").Add(float64(stats.ExternalChecks))
-	m.checksSuccess.WithLabelValues("external").Add(float64(stats.Successful))
-	m.checksFailed.WithLabelValues("external").Add(float64(stats.Failed))
+	// Use Set instead of Add to avoid duplication
+	m.checksTotal.WithLabelValues("external").Set(float64(stats.ExternalChecks))
+	m.checksSuccess.WithLabelValues("external").Set(float64(stats.Successful))
+	m.checksFailed.WithLabelValues("external").Set(float64(stats.Failed))
 
-	m.checksTotal.WithLabelValues("corporate").Add(float64(stats.CorporateChecks))
-	m.checksSuccess.WithLabelValues("corporate").Add(float64(stats.Successful))
-	m.checksFailed.WithLabelValues("corporate").Add(float64(stats.Failed))
+	m.checksTotal.WithLabelValues("corporate").Set(float64(stats.CorporateChecks))
 }
