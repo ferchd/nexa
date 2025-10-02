@@ -1,11 +1,11 @@
-.PHONY: build test clean install release docker
+.PHONY: build test clean install release docker lint security coverage help
 
-BINARY_NAME=netcheck
+BINARY_NAME=nexa
 VERSION=$(shell git describe --tags --abbrev=0 2>/dev/null || echo "dev")
 
 build:
 	@echo "Building $(BINARY_NAME)..."
-	go build -ldflags="-s -w -X main.version=$(VERSION)" -o bin/$(BINARY_NAME) ./cmd/netcheck
+	go build -ldflags="-s -w -X main.version=$(VERSION)" -o bin/$(BINARY_NAME) ./cmd/nexa
 
 test:
 	@echo "Running tests..."
@@ -26,7 +26,7 @@ release: test
 
 docker:
 	@echo "Building Docker image..."
-	docker build -t netcheck:$(VERSION) -f scripts/docker/Dockerfile .
+	docker build -t nexa:$(VERSION) -f scripts/docker/Dockerfile .
 
 lint:
 	@echo "Running linter..."
