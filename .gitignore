@@ -1,0 +1,59 @@
+# Binaries
+bin/
+dist/
+nexa
+netcheck
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binaries
+*.test
+*.out
+
+# Coverage files
+coverage.out
+coverage.html
+*.coverprofile
+
+# Dependencies
+vendor/
+
+# Go workspace file
+go.work
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.settings/
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Logs
+*.log
+/var/log/
+logs/
+
+# Config
+config.local.yaml
+*.local.yaml
+.env
+.env.local
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Build artifacts
+*.tar.gz
+*.zip
+checksums.txt
