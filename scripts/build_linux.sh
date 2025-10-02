@@ -6,7 +6,7 @@ VERSION=${1:-$(git describe --tags --abbrev=0)}
 OUTPUT_DIR="dist/linux"
 mkdir -p $OUTPUT_DIR
 
-echo "Building NetCheck for Linux - Version: $VERSION"
+echo "Building Nexa for Linux - Version: $VERSION"
 
 ARCHITECTURES=("amd64" "386" "arm64" "arm")
 
@@ -17,15 +17,15 @@ for arch in "${ARCHITECTURES[@]}"; do
     export GOARCH=$arch
     
     go build -ldflags="-s -w -X main.version=$VERSION" \
-             -o "$OUTPUT_DIR/netcheck-linux-$arch" \
-             ./cmd/netcheck
+             -o "$OUTPUT_DIR/nexa-linux-$arch" \
+             ./cmd/nexa
     
     # Create tarball
-    tar -czf "$OUTPUT_DIR/netcheck-linux-$arch.tar.gz" \
+    tar -czf "$OUTPUT_DIR/nexa-linux-$arch.tar.gz" \
         -C "$OUTPUT_DIR" \
-        "netcheck-linux-$arch"
+        "nexa-linux-$arch"
     
-    echo "✅ Built $OUTPUT_DIR/netcheck-linux-$arch.tar.gz"
+    echo "✅ Built $OUTPUT_DIR/nexa-linux-$arch.tar.gz"
 done
 
 cd $OUTPUT_DIR
