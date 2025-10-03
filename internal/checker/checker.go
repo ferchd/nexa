@@ -11,6 +11,7 @@ import (
 	"github.com/ferchd/nexa/internal/config"
 	"github.com/ferchd/nexa/internal/metrics"
 	"github.com/ferchd/nexa/pkg/utils"
+	"github.com/ferchd/nexa/internal/types"
 )
 
 type CheckType string
@@ -38,15 +39,7 @@ type GlobalResult struct {
 	ElapsedSeconds   float64                `json:"elapsed_s"`
 	InternetDetails  map[string]CheckResult `json:"internet_details"`
 	CorporateDetails map[string]CheckResult `json:"corporate_details"`
-	Summary          SummaryStats           `json:"summary"`
-}
-
-type SummaryStats struct {
-	TotalChecks    int `json:"total_checks"`
-	Successful     int `json:"successful"`
-	Failed         int `json:"failed"`
-	ExternalChecks int `json:"external_checks"`
-	CorporateChecks int `json:"corporate_checks"`
+	Summary          types.SummaryStats     `json:"summary"`
 }
 
 type Nexa struct {
@@ -147,10 +140,10 @@ func (nc *Nexa) RunWithContext(ctx context.Context) *GlobalResult {
 	result.Summary = nc.calculateSummary(result)
 
 	if nc.metrics != nil {
-		nc.metrics.UpdateInternetStatus(result.InternetOK)
-		nc.metrics.UpdateCorporateStatus(result.CorporateOK)
-		nc.metrics.UpdateCheckDuration(result.ElapsedSeconds)
-		nc.metrics.UpdateCheckSummary(result.Summary)
+	    nc.metrics.UpdateInternetStatus(result.InternetOK)
+	    nc.metrics.UpdateCorporateStatus(result.CorporateOK) 
+	    nc.metrics.UpdateCheckDuration(result.ElapsedSeconds)
+	    nc.metrics.UpdateCheckSummary(result.Summary)
 	}
 
 	return result
@@ -297,8 +290,8 @@ func (nc *Nexa) determineCorporateStatus(result *GlobalResult) bool {
 	return false
 }
 
-func (nc *Nexa) calculateSummary(result *GlobalResult) SummaryStats {
-	stats := SummaryStats{}
+func (nc *Nexa) calculateSummary(result *GlobalResult) types.SummaryStats {
+	stats := types.SummaryStats{}
 	
 	for _, check := range result.InternetDetails {
 		stats.TotalChecks++

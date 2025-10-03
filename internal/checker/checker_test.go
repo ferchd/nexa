@@ -1,11 +1,13 @@
 package checker
 
 import (
+	"fmt"
 	"net"
 	"testing"
 	"time"
 
 	"github.com/ferchd/nexa/internal/config"
+	"github.com/ferchd/nexa/internal/types"
 )
 
 func TestCheckTCP_Success(t *testing.T) {
@@ -14,9 +16,7 @@ func TestCheckTCP_Success(t *testing.T) {
 	
 	host, portStr, _ := net.SplitHostPort(addr)
 	var port int
-	if _, err := fmt.Sscanf(portStr, "%d", &port); err != nil {
-		t.Fatalf("Failed to parse port: %v", err)
-	}
+	fmt.Sscanf(portStr, "%d", &port)
 	
 	result := CheckTCP(host, port, 2*time.Second)
 	if !result {
@@ -32,7 +32,6 @@ func TestCheckTCP_Failure(t *testing.T) {
 }
 
 func TestCheckTCP_Timeout(t *testing.T) {
-	// Test with very short timeout
 	result := CheckTCP("1.1.1.1", 81, 1*time.Nanosecond)
 	if result {
 		t.Errorf("Expected TCP check to timeout")
@@ -166,9 +165,15 @@ func TestCheckResult_JSON(t *testing.T) {
 		Timestamp:   time.Now(),
 		InternetDetails: make(map[string]CheckResult),
 		CorporateDetails: make(map[string]CheckResult),
+		Summary: types.SummaryStats{
+			TotalChecks:     5,
+			Successful:      4,
+			Failed:          1,
+			ExternalChecks:  3,
+			CorporateChecks: 2,
+		},
 	}
 	
-	// Should not panic
 	result.PrintJSON()
 }
 
@@ -180,15 +185,14 @@ func TestCheckResult_Human(t *testing.T) {
 		ElapsedSeconds: 1.234,
 		InternetDetails: make(map[string]CheckResult),
 		CorporateDetails: make(map[string]CheckResult),
-		Summary: SummaryStats{
-			TotalChecks: 5,
-			Successful: 4,
-			Failed: 1,
-			ExternalChecks: 3,
+		Summary: types.SummaryStats{
+			TotalChecks:     5,
+			Successful:      4,
+			Failed:          1,
+			ExternalChecks:  3,
 			CorporateChecks: 2,
 		},
 	}
 	
-	// Should not panic
 	result.PrintHuman()
 }

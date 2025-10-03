@@ -6,6 +6,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/ferchd/nexa/internal/types"
 )
 
 type PrometheusMetrics struct {
@@ -86,13 +87,7 @@ func (m *PrometheusMetrics) UpdateCheckDuration(duration float64) {
 	m.checkDuration.Set(duration)
 }
 
-func (m *PrometheusMetrics) UpdateCheckSummary(stats struct {
-	TotalChecks    int
-	Successful     int
-	Failed         int
-	ExternalChecks int
-	CorporateChecks int
-}) {
+func (m *PrometheusMetrics) UpdateCheckSummary(stats types.SummaryStats) {
 	// Use Set instead of Add to avoid duplication
 	m.checksTotal.WithLabelValues("external").Set(float64(stats.ExternalChecks))
 	m.checksSuccess.WithLabelValues("external").Set(float64(stats.Successful))
