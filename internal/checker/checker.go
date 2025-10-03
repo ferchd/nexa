@@ -1,6 +1,7 @@
 package checker
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -52,6 +53,8 @@ type Nexa struct {
 	config  *config.Config
 	metrics *metrics.PrometheusMetrics
 	logger  *log.Logger
+	ctx     context.Context
+	cancel  context.CancelFunc
 }
 
 func NewNexa(cfg *config.Config) (*Nexa, error) {
@@ -64,14 +67,22 @@ func NewNexa(cfg *config.Config) (*Nexa, error) {
 		}
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	return &Nexa{
 		config:  cfg,
 		metrics: promMetrics,
 		logger:  log.New(log.Writer(), "[nexa] ", log.LstdFlags),
+		ctx:     ctx,
+		cancel:  cancel,
 	}, nil
 }
 
 func (nc *Nexa) Run() *GlobalResult {
+	return nc.RunWithContext(nc.ctx)
+}
+
+func (nc *Nexa) RunWithContext(ctx context.Context) *GlobalResult {
 	startTime := time.Now()
 	result := &GlobalResult{
 		Timestamp:        startTime,
@@ -82,12 +93,24 @@ func (nc *Nexa) Run() *GlobalResult {
 	var wg sync.WaitGroup
 	results := make(chan CheckResult, len(nc.config.ExternalHosts)+len(nc.config.CorpHosts))
 
+	// Check for context cancellation
+	if ctx.Err() != nil {
+		nc.logger.Printf("Context cancelled before checks started: %v", ctx.Err())
+		return result
+	}
+
 	for _, hp := range nc.config.ExternalHosts {
 		wg.Add(1)
 		go func(hp config.HostPort) {
 			defer wg.Done()
-			checkResult := nc.checkExternal(hp)
-			results <- checkResult
+			select {
+			case <-ctx.Done():
+				nc.logger.Printf("Check cancelled for %s:%d", hp.Host, hp.Port)
+				return
+			default:
+				checkResult := nc.checkExternal(ctx, hp)
+				results <- checkResult
+			}
 		}(hp)
 	}
 
@@ -95,8 +118,14 @@ func (nc *Nexa) Run() *GlobalResult {
 		wg.Add(1)
 		go func(hp config.HostPort) {
 			defer wg.Done()
-			checkResult := nc.checkCorporate(hp)
-			results <- checkResult
+			select {
+			case <-ctx.Done():
+				nc.logger.Printf("Check cancelled for %s:%d", hp.Host, hp.Port)
+				return
+			default:
+				checkResult := nc.checkCorporate(ctx, hp)
+				results <- checkResult
+			}
 		}(hp)
 	}
 
@@ -120,13 +149,19 @@ func (nc *Nexa) Run() *GlobalResult {
 	if nc.metrics != nil {
 		nc.metrics.UpdateInternetStatus(result.InternetOK)
 		nc.metrics.UpdateCorporateStatus(result.CorporateOK)
+		nc.metrics.UpdateCheckDuration(result.ElapsedSeconds)
 		nc.metrics.UpdateCheckSummary(result.Summary)
 	}
 
 	return result
 }
 
-func (nc *Nexa) checkExternal(hp config.HostPort) CheckResult {
+func (nc *Nexa) Shutdown() {
+	nc.logger.Println("Shutting down gracefully...")
+	nc.cancel()
+}
+
+func (nc *Nexa) checkExternal(ctx context.Context, hp config.HostPort) CheckResult {
 	startTime := time.Now()
 	result := CheckResult{
 		Type:      CheckTypeExternal,
@@ -138,33 +173,49 @@ func (nc *Nexa) checkExternal(hp config.HostPort) CheckResult {
 
 	if hp.Port > 0 {
 		tcpOK := utils.Retry(nc.config.Attempts, nc.config.Backoff, func() bool {
+			if ctx.Err() != nil {
+				return false
+			}
 			return CheckTCP(hp.Host, hp.Port, nc.config.TCPTimeout)
 		})
 		result.Details["tcp"] = tcpOK
 	}
 
 	pingOK := utils.Retry(nc.config.Attempts, nc.config.Backoff, func() bool {
+		if ctx.Err() != nil {
+			return false
+		}
 		return CheckPing(hp.Host, nc.config.PingTimeout, nc.config.Attempts)
 	})
 	result.Details["ping"] = pingOK
 
 	if nc.config.HTTPURL != "" {
 		httpOK := utils.Retry(nc.config.Attempts, nc.config.Backoff, func() bool {
+			if ctx.Err() != nil {
+				return false
+			}
 			return CheckHTTP(nc.config.HTTPURL, nc.config.HTTPTimeout)
 		})
 		result.Details["http"] = httpOK
 		result.Details["http_url"] = nc.config.HTTPURL
 	}
 
-	result.Success = result.Details["tcp"] == true || 
-	                 result.Details["ping"] == true || 
-	                 result.Details["http"] == true
+	tcpOK, hasTCP := result.Details["tcp"].(bool)
+	pingOK, hasPing := result.Details["ping"].(bool)
+	httpOK, hasHTTP := result.Details["http"].(bool)
+
+	result.Success = (hasTCP && tcpOK) || (hasPing && pingOK) || (hasHTTP && httpOK)
 	result.Duration = time.Since(startTime)
+
+	if ctx.Err() != nil {
+		result.Success = false
+		result.Error = ctx.Err().Error()
+	}
 
 	return result
 }
 
-func (nc *Nexa) checkCorporate(hp config.HostPort) CheckResult {
+func (nc *Nexa) checkCorporate(ctx context.Context, hp config.HostPort) CheckResult {
 	startTime := time.Now()
 	result := CheckResult{
 		Type:      CheckTypeCorporate,
@@ -176,6 +227,9 @@ func (nc *Nexa) checkCorporate(hp config.HostPort) CheckResult {
 
 	if hp.Port > 0 {
 		tcpOK := utils.Retry(nc.config.Attempts, nc.config.Backoff, func() bool {
+			if ctx.Err() != nil {
+				return false
+			}
 			return CheckTCP(hp.Host, hp.Port, nc.config.TCPTimeout)
 		})
 		result.Details["tcp"] = tcpOK
@@ -183,14 +237,25 @@ func (nc *Nexa) checkCorporate(hp config.HostPort) CheckResult {
 
 	if nc.config.DNSProbe != "" {
 		dnsOK := utils.Retry(nc.config.Attempts, nc.config.Backoff, func() bool {
+			if ctx.Err() != nil {
+				return false
+			}
 			return CheckDNS(nc.config.DNSProbe)
 		})
 		result.Details["dns"] = dnsOK
 		result.Details["dns_probe"] = nc.config.DNSProbe
 	}
 
-	result.Success = result.Details["tcp"] == true || result.Details["dns"] == true
+	tcpOK, hasTCP := result.Details["tcp"].(bool)
+	dnsOK, hasDNS := result.Details["dns"].(bool)
+
+	result.Success = (hasTCP && tcpOK) || (hasDNS && dnsOK)
 	result.Duration = time.Since(startTime)
+
+	if ctx.Err() != nil {
+		result.Success = false
+		result.Error = ctx.Err().Error()
+	}
 
 	return result
 }

@@ -3,6 +3,8 @@ package main
 import (
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/ferchd/nexa/internal/checker"
 	"github.com/ferchd/nexa/internal/config"
@@ -21,7 +23,7 @@ func main() {
 	}
 
 	if len(os.Args) > 1 && (os.Args[1] == "-v" || os.Args[1] == "--version") {
-		log.Printf("NetCheck version %s, commit %s, built at %s", version, commit, date)
+		log.Printf("Nexa version %s, commit %s, built at %s", version, commit, date)
 		os.Exit(0)
 	}
 
@@ -29,6 +31,15 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error creating checker: %v", err)
 	}
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		sig := <-sigChan
+		log.Printf("Received signal %v, shutting down gracefully...", sig)
+		nexa.Shutdown()
+	}()
 
 	result := nexa.Run()
 
