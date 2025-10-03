@@ -14,7 +14,8 @@ func CheckPing(host string, timeout time.Duration, count int) bool {
 
 	pinger.Count = count
 	pinger.Timeout = timeout
-	pinger.SetPrivileged(true)
+	
+	pinger.SetPrivileged(false)
 
 	err = pinger.Run()
 	if err != nil {
